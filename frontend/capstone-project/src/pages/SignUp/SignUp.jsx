@@ -81,6 +81,7 @@ const SignUp = () => {
           <label for="year" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Year</label>
           <select class="text-black w-full border border-gray-300 rounded-md p-2 mb-4" value={year}
             onChange={(e) => setYear(e.target.value)}>
+                <option value="" disabled>Select Year</option>
                 <option>Freshman</option>
                 <option>Sophomore</option>
                 <option>Junior</option>
