@@ -7,41 +7,68 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
+import { useNavigate } from "react-router-dom";
+import { BASE_URL } from "@/utils/constants";
 
 function Notifications() {
     const [notifications, setNotifications] = useState([]);
+    const [error, setError] = useState(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchNotifications = async () => {
             try {
-                const response = await axiosInstance.get("http://localhost:8000/notifications", {
+                const token = localStorage.getItem("token");
+                if (!token) {
+                    setError("No authentication token found");
+                    navigate("/login");
+                    return;
+                }
+                
+                const response = await axiosInstance.get(`${BASE_URL}/notifications`, {
                     headers: {
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
+                        Authorization: `Bearer ${token}`,
                     },
                 });
                 setNotifications(response.data.notifications);
             } catch (error) {
                 console.error("Error fetching notifications:", error);
+                setError(error.response?.data?.message || "Error fetching notifications");
             }
         };
 
         fetchNotifications();
-    }, []);
+    }, [navigate]);
 
-    const handleResponse = async (notificationId, action) => {
+    const handleRespond = async (notificationId, action) => {
         try {
-            const response = await axios.post(
-                `http://localhost:8000/notifications/${notificationId}/respond`,
+            const token = localStorage.getItem("token");
+            if (!token) {
+                setError("No authentication token found");
+                navigate("/login");
+                return;
+            }
+            
+            await axiosInstance.post(
+                `${BASE_URL}/notifications/${notificationId}/respond`,
                 { action },
-                { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
             );
-            console.log(response.data.message);
-            // Update the notifications list after responding
-            setNotifications((prev) =>
-                prev.filter((notification) => notification._id !== notificationId)
-            );
+            
+            // Refresh notifications after responding
+            const response = await axiosInstance.get(`${BASE_URL}/notifications`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            setNotifications(response.data.notifications);
         } catch (error) {
-            console.error("Error responding to notification:", error.response?.data || error.message);
+            console.error("Error responding to notification:", error);
+            setError(error.response?.data?.message || "Error responding to notification");
         }
     };
 
@@ -80,14 +107,14 @@ function Notifications() {
             <Button
               variant="outline"
               className="w-full sm:w-auto"
-              onClick={() => handleResponse(notification._id, "reject")}
+              onClick={() => handleRespond(notification._id, "reject")}
             >
               <XCircle className="h-4 w-4 mr-2" />
               Reject
             </Button>
             <Button
               className="w-full sm:w-auto"
-              onClick={() => handleResponse(notification._id, "accept")}
+              onClick={() => handleRespond(notification._id, "accept")}
             >
               <CheckCircle className="h-4 w-4 mr-2" />
               Accept

@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Navbar from '../Navbar/Navbar'
 import axiosInstance from '../../../utils/axiosInstance';
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { MapPin, GraduationCap, Mail } from 'lucide-react'
 import OrderCard from '../Cards/OrderCard'
 import axios from 'axios';
+import { BASE_URL } from '@/utils/constants';
 
 const ProfileInfo = () => {
   const [user, setUser] = useState(null);
@@ -17,6 +18,7 @@ const ProfileInfo = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false); // For showing the edit pop-up
   const [editData, setEditData] = useState({});
 
@@ -32,9 +34,11 @@ const ProfileInfo = () => {
       try {
         const token = localStorage.getItem("token");
         if (!token) {
-          throw new Error("No authentication token found");
+          setError("No authentication token found");
+          navigate("/login");
+          return;
         }
-        axiosInstance.get('http://localhost:8000/profile', {
+        axiosInstance.get(`${BASE_URL}/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -66,7 +70,7 @@ const ProfileInfo = () => {
     };
 
     fetchProfile();
-  }, []);
+  }, [navigate]);
 
   if (isLoading) {
     return (
@@ -103,65 +107,71 @@ const ProfileInfo = () => {
   //   }
   // };
 
-  const handleDelete = async (orderId) => {
-    if (!window.confirm("Are you sure you want to delete this post?")) return;
-
+  const handleDeletePost = async (orderId) => {
     try {
-        await axiosInstance.delete(`http://localhost:8000/delete-order/${orderId}`, {
-            headers: {
-                Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-        });
-        // Update the UI after deletion
-        setPosts((prevPosts) => prevPosts.filter((post) => post._id !== orderId));
-        alert("Post deleted successfully.");
-    } catch (error) {
-        console.error("Error deleting post:", error);
-        alert("Failed to delete the post. Please try again.");
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("No authentication token found");
+        navigate("/login");
+        return;
+      }
+      
+      await axiosInstance.delete(`${BASE_URL}/delete-order/${orderId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      // Remove the deleted post from the state
+      setPosts(posts.filter(post => post._id !== orderId));
+    } catch (err) {
+      console.error("Error deleting post:", err);
+      setError(err.response?.data?.message || err.message || "Error deleting post");
     }
-};
+  };
 
-const handleEdit = (post) => {
-  setEditData(post); // Load the post data into the state
-  setIsEditing(true); // Show the edit form
-};
-
-// Handle form changes
-const handleChange = (e) => {
-  const { name, value } = e.target;
-  setEditData((prev) => ({ ...prev, [name]: value }));
-};
-
-// Submit the edited post
-const handleEditSubmit = async (e) => {
-  e.preventDefault();
-
-  try {
-
-      const response = await axios.put(
-          `http://localhost:8000/edit-order/${editData._id}`,
-          editData,
-          {
-              headers: {
-                  Authorization: `Bearer ${localStorage.getItem("token")}`,
-              },
-          }
+  const handleEditPost = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("No authentication token found");
+        navigate("/login");
+        return;
+      }
+      
+      await axiosInstance.put(
+        `${BASE_URL}/edit-order/${editData._id}`,
+        editData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
       );
-      console.log("Edit response:", response.data);
+      
+      // Update the post in the state
+      setPosts(posts.map(post => 
+        post._id === editData._id ? { ...post, ...editData } : post
+      ));
+      
+      // Close the edit popup
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Error editing post:", err);
+      setError(err.response?.data?.message || err.message || "Error editing post");
+    }
+  };
 
-      // Update the posts in the UI
-      setPosts((prev) =>
-          prev.map((post) =>
-              post._id === editData._id ? { ...post, ...editData } : post
-          )
-      );
-      setIsEditing(false); // Close the pop-up
-      alert("Post updated successfully.");
-  } catch (error) {
-      console.error("Error updating post:", error);
-      alert("Failed to update the post. Please try again.");
-  }
-};
+  const handleEdit = (post) => {
+    setEditData(post); // Load the post data into the state
+    setIsEditing(true); // Show the edit form
+  };
+
+  // Handle form changes
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setEditData((prev) => ({ ...prev, [name]: value }));
+  };
 
   return (
     <>
@@ -218,7 +228,7 @@ const handleEditSubmit = async (e) => {
               />
 
               <button
-                    onClick={() => handleDelete(post._id)}
+                    onClick={() => handleDeletePost(post._id)}
                     className="mt-2 bg-red-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md"
                   >
                     Delete
@@ -240,7 +250,7 @@ const handleEditSubmit = async (e) => {
     <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
         <div className="bg-white rounded-lg shadow-lg w-11/12 md:w-1/2 p-6 relative text-black">
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">Edit Post</h2>
-            <form onSubmit={handleEditSubmit}>
+            <form onSubmit={handleEditPost}>
                 <div className="mb-4">
                     <label className="block text-gray-700 font-medium mb-2">
                         Title:

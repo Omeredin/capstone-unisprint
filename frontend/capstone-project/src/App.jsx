@@ -7,6 +7,7 @@ import ProfileInfo from './components/mycomponents/Cards/ProfileInfo'
 import AddOrderCard from './pages/Home/AddOrderCard'
 import LandingPage from './pages/Landing/LandingPage'
 import Notifications from './pages/Activity/Notifications'
+import Messages from './pages/Messages/messages'
 
 const routes = (
   <Router>
@@ -18,6 +19,7 @@ const routes = (
     <Route path="/profile" exact element={<ProfileInfo />}/>
     <Route path='/create-post' exact element={<AddOrderCard />}/>
     <Route path='/notifications' exact element={<Notifications />}/>
+    <Route path='/messages' exact element={<Messages />}/>
     </Routes>
   </Router>
 )

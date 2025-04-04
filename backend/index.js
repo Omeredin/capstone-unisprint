@@ -6,7 +6,8 @@ const mongoose = require("mongoose");
 
 const User = require("./models/user.model");
 const Order = require("./models/order.model");
-
+const Conversation = require("./models/conversation.model")
+const Message = require("./models/messages.model")
 mongoose.connect(config.connectionString, { useNewUrlParser: true, useUnifiedTopology: true })
 .then(() => console.log("MongoDB connected"))
 .catch(err => console.error("MongoDB connection erro:", err));
@@ -16,7 +17,7 @@ mongoose.connect(config.connectionString, { useNewUrlParser: true, useUnifiedTop
 const express = require("express");
 const cors = require("cors");
 const app = express();
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 8000;
 
 
 
@@ -442,52 +443,6 @@ app.post("/apply-job/:orderId", authenticateToken, async (req, res) => {
 });
   
 
-// app.post("/job-response/:orderId", authenticateToken, async (req, res) => {
-// const { orderId } = req.params;
-// const { applicantId, action } = req.body;
-
-// try {
-//     const order = await Order.findById(orderId);
-
-//     if (!order) {
-//         return res.status(404).json({ error: true, message: "Job not found" });
-//     }
-
-//     if (order.userId.toString() !== req.user._id) {
-//         return res.status(403).json({ error: true, message: "You are not authorized to respond to this job" });
-//     }
-
-//     if (action === "accept") {
-//         order.acceptedBy = applicantId;
-//         order.status = "Accepted";
-//         await order.save();
-
-//         // Notify the applicant
-//         const notification = new Notification({
-//             userId: applicantId,
-//             orderId: order._id,
-//             message: `Your application for the job "${order.title}" has been accepted.`,
-//         });
-//         await notification.save();
-//     } else if (action === "reject") {
-//         order.applicants = order.applicants.filter((id) => id.toString() !== applicantId);
-//         await order.save();
-
-//         // Notify the applicant
-//         const notification = new Notification({
-//             userId: applicantId,
-//             orderId: order._id,
-//             message: `Your application for the job "${order.title}" has been rejected.`,
-//         });
-//         await notification.save();
-//     }
-
-//     res.json({ error: false, message: `Job application ${action}ed successfully` });
-// } catch (error) {
-//     console.error("Error responding to job application:", error);
-//     res.status(500).json({ error: true, message: "Internal server error" });
-// }
-// });
 
 app.get("/notifications", authenticateToken, async (req, res) => {
     try {
@@ -562,11 +517,299 @@ app.post("/notifications/:notificationId/respond", authenticateToken, async (req
     }
 });
 
+app.get("/conversations", authenticateToken, async (req, res) => {
+    try {
+      // Find all conversations where the user is a participant
+      const conversations = await Conversation.find({
+        participants: req.user.userId,
+      }).populate("participants", "fullName email")
+  
+      // Process conversations to get the right format for the frontend
+      const processedConversations = await Promise.all(
+        conversations.map(async (conv) => {
+          // Get the other user in the conversation
+          const otherUser = conv.participants.find((participant) => participant._id.toString() !== req.user.userId)
+  
+          // Get the last message
+          const lastMessage = await Message.findById(conv.lastMessage).lean()
+  
+          // Count unread messages
+          const unreadCount = await Message.countDocuments({
+            conversationId: conv._id,
+            sender: { $ne: req.user.userId },
+            read: false,
+          })
+  
+          return {
+            _id: conv._id,
+            otherUser: {
+              _id: otherUser._id,
+              fullName: otherUser.fullName,
+              email: otherUser.email,
+            },
+            lastMessage: lastMessage
+              ? {
+                  ...lastMessage,
+                  isSender: lastMessage.sender.toString() === req.user.userId,
+                }
+              : null,
+            unreadCount,
+          }
+        }),
+      )
+  
+      res.json({ conversations: processedConversations })
+    } catch (error) {
+      console.error("Error fetching conversations:", error)
+      res.status(500).json({ error: true, message: "Internal server error" })
+    }
+  })
+  
+  // Get messages for a specific conversation
+  app.get("/messages/:conversationId", authenticateToken, async (req, res) => {
+    try {
+      const { conversationId } = req.params
+  
+      // Check if the user is a participant in this conversation
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        participants: req.user.userId,
+      })
+  
+      if (!conversation) {
+        return res.status(403).json({ error: true, message: "You don't have access to this conversation" })
+      }
+  
+      // Get all messages for this conversation
+      const messages = await Message.find({ conversationId }).sort({ createdAt: 1 }).lean()
+  
+      // Add isSender flag to each message
+      const processedMessages = messages.map((msg) => ({
+        ...msg,
+        isSender: msg.sender.toString() === req.user.userId,
+      }))
+  
+      res.json({ messages: processedMessages })
+    } catch (error) {
+      console.error("Error fetching messages:", error)
+      res.status(500).json({ error: true, message: "Internal server error" })
+    }
+  })
+  
+  // Send a new message
+  app.post("/send-message", authenticateToken, async (req, res) => {
+    try {
+      const { conversationId, content, recipientId } = req.body
+  
+      let conversation
+  
+      // If conversationId is provided, use existing conversation
+      if (conversationId) {
+        conversation = await Conversation.findOne({
+          _id: conversationId,
+          participants: req.user.userId,
+        })
+  
+        if (!conversation) {
+          return res.status(403).json({ error: true, message: "You don't have access to this conversation" })
+        }
+      }
+      // If recipientId is provided, find or create a conversation
+      else if (recipientId) {
+        // Check if conversation already exists
+        conversation = await Conversation.findOne({
+          participants: { $all: [req.user.userId, recipientId] },
+        })
+  
+        // If not, create a new conversation
+        if (!conversation) {
+          conversation = new Conversation({
+            participants: [req.user.userId, recipientId],
+          })
+          await conversation.save()
+        }
+      } else {
+        return res.status(400).json({ error: true, message: "Either conversationId or recipientId is required" })
+      }
+  
+      // Create the new message
+      const message = new Message({
+        conversationId: conversation._id,
+        sender: req.user.userId,
+        content,
+        read: false,
+      })
+  
+      await message.save()
+  
+      // Update the conversation's lastMessage and updatedAt
+      conversation.lastMessage = message._id
+      conversation.updatedAt = Date.now()
+      await conversation.save()
+  
+      res.json({
+        error: false,
+        message: "Message sent successfully",
+        data: {
+          messageId: message._id,
+          conversationId: conversation._id,
+        },
+      })
+    } catch (error) {
+      console.error("Error sending message:", error)
+      res.status(500).json({ error: true, message: "Internal server error" })
+    }
+  })
+  
+  // Mark messages as read
+  app.post("/mark-messages-read/:conversationId", authenticateToken, async (req, res) => {
+    try {
+      const { conversationId } = req.params
+  
+      // Check if the user is a participant in this conversation
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        participants: req.user.userId,
+      })
+  
+      if (!conversation) {
+        return res.status(403).json({ error: true, message: "You don't have access to this conversation" })
+      }
+  
+      // Mark all messages from other users as read
+      await Message.updateMany(
+        {
+          conversationId,
+          sender: { $ne: req.user.userId },
+          read: false,
+        },
+        { read: true },
+      )
+  
+      res.json({ error: false, message: "Messages marked as read" })
+    } catch (error) {
+      console.error("Error marking messages as read:", error)
+      res.status(500).json({ error: true, message: "Internal server error" })
+    }
+  })
+  
+  // Get count of unread messages
+  app.get("/unread-message-count", authenticateToken, async (req, res) => {
+    try {
+      // Find all conversations where the user is a participant
+      const conversations = await Conversation.find({
+        participants: req.user.userId,
+      })
+  
+      // Count all unread messages across all conversations
+      const conversationIds = conversations.map((conv) => conv._id)
+      const count = await Message.countDocuments({
+        conversationId: { $in: conversationIds },
+        sender: { $ne: req.user.userId },
+        read: false,
+      })
+  
+      res.json({ count })
+    } catch (error) {
+      console.error("Error getting unread message count:", error)
+      res.status(500).json({ error: true, message: "Internal server error" })
+    }
+  })
+  
+  // Start a new conversation with a user
+  app.post("/start-conversation", authenticateToken, async (req, res) => {
+    try {
+      const { recipientId, initialMessage } = req.body
+  
+      if (!recipientId) {
+        return res.status(400).json({ error: true, message: "Recipient ID is required" })
+      }
+  
+      // Check if the recipient exists
+      const recipient = await User.findById(recipientId)
+      if (!recipient) {
+        return res.status(404).json({ error: true, message: "Recipient not found" })
+      }
+  
+      // Check if a conversation already exists
+      let conversation = await Conversation.findOne({
+        participants: { $all: [req.user.userId, recipientId] },
+      })
+  
+      // If not, create a new conversation
+      if (!conversation) {
+        conversation = new Conversation({
+          participants: [req.user.userId, recipientId],
+        })
+        await conversation.save()
+      }
+  
+      // If an initial message was provided, create it
+      if (initialMessage) {
+        const message = new Message({
+          conversationId: conversation._id,
+          sender: req.user.userId,
+          content: initialMessage,
+          read: false,
+        })
+  
+        await message.save()
+  
+        // Update the conversation
+        conversation.lastMessage = message._id
+        conversation.updatedAt = Date.now()
+        await conversation.save()
+      }
+  
+      res.json({
+        error: false,
+        message: "Conversation started successfully",
+        conversationId: conversation._id,
+      })
+    } catch (error) {
+      console.error("Error starting conversation:", error)
+      res.status(500).json({ error: true, message: "Internal server error" })
+    }
+  })
+  
+  // Search users by name or email
+  app.get("/search-users", authenticateToken, async (req, res) => {
+    try {
+      const { query } = req.query;
+      
+      if (!query) {
+        return res.status(400).json({ error: true, message: "Search query is required" });
+      }
+      
+      // Search for users by name or email, excluding the current user
+      const users = await User.find({
+        $and: [
+          { _id: { $ne: req.user.userId } }, // Exclude current user
+          {
+            $or: [
+              { fullName: { $regex: query, $options: "i" } },
+              { email: { $regex: query, $options: "i" } }
+            ]
+          }
+        ]
+      }).select("fullName email major year hometown");
+      
+      res.json({ 
+        error: false, 
+        users,
+        message: "Users found successfully" 
+      });
+    } catch (error) {
+      console.error("Error searching users:", error);
+      res.status(500).json({ error: true, message: "Internal server error" });
+    }
+  });
+  
   
   
 
 
-app.listen(8000);
+app.listen(port);
 
 module.exports = app;
 
