@@ -28,7 +28,7 @@ app.use(express.json())
 
 app.use(
     cors({
-        origin: "*",
+        origin: "https://capstone-unisprint-two.vercel.app",
     })
 );
 
