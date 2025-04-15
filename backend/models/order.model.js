@@ -1,6 +1,12 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
+const replySchema = new Schema({
+  content: { type: String, required: true },
+  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const orderSchema = new Schema({
     title: { type: String, required: true },
     content: { type: String, required: true },
@@ -15,7 +21,7 @@ const orderSchema = new Schema({
     acceptedAt: {type: Date, default: null},
     applicants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Track applicants
     status: { type: String, default: "Open" }, // Open, Accepted, or Rejected
-    // userName: {type: String, default: userId.fullName}
+    replies: [replySchema] // Array of replies
 });
 
 module.exports = mongoose.model("Order", orderSchema);

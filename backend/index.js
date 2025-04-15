@@ -28,7 +28,8 @@ app.use(express.json())
 
 app.use(
     cors({
-        origin: "https://capstone-unisprint-two.vercel.app",
+        origin: ["https://capstone-unisprint-two.vercel.app", "http://localhost:5173", "http://localhost:3000"],
+        credentials: true
     })
 );
 
@@ -812,4 +813,34 @@ app.get("/conversations", authenticateToken, async (req, res) => {
 app.listen(port);
 
 module.exports = app;
+
+// Add reply to an order
+app.post('/add-reply', authenticateToken, async (req, res) => {
+  try {
+    const { orderId, content } = req.body;
+    const userId = req.user.userId;
+
+    // Find the order
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Create a new reply
+    const reply = {
+      content,
+      userId,
+      createdAt: new Date()
+    };
+
+    // Add the reply to the order
+    order.replies.push(reply);
+    await order.save();
+
+    res.status(201).json({ reply });
+  } catch (error) {
+    console.error('Error adding reply:', error);
+    res.status(500).json({ message: 'Error adding reply' });
+  }
+});
 

@@ -27,22 +27,28 @@ const Login = () => {
     
     try {
       const response = await axiosInstance.post("/login", {
-        email:email,
+        email: email,
         password: password,
       });
-  
   
       if (response.data && response.data.accessToken) {
         localStorage.setItem("token", response.data.accessToken);
         navigate("/dashboard");
-      }} catch (error) {
-        if (error.response && error.response.data && error.response.data.message) {
-          console.error('Error during login:', error);
-          setError(error.response.data.message);
-        } else {
-          setError("error just occured");
-        }
-      };
+      }
+    } catch (error) {
+      console.error('Error during login:', error);
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        setError(error.response.data.message || "Login failed. Please try again.");
+      } else if (error.request) {
+        // The request was made but no response was received
+        setError("No response from server. Please check your connection.");
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        setError("An error occurred. Please try again later.");
+      }
+    }
   };
 
 
