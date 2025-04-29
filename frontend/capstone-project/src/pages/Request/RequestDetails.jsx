@@ -1,3 +1,109 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import axiosInstance from '@/utils/axiosInstance';
+import { toast } from 'react-hot-toast';
+
+const RequestDetails = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [request, setRequest] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+
+  useEffect(() => {
+    fetchRequestDetails();
+  }, [id]);
+
+  const fetchRequestDetails = async () => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.get(`/get-order/${id}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      setRequest(response.data.order);
+    } catch (error) {
+      console.error('Error fetching request details:', error);
+      toast.error('Failed to load request details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReply = () => {
+    if (!localStorage.getItem('token')) {
+      toast.error('Please login to reply');
+      navigate('/login');
+      return;
+    }
+    setShowReplyModal(true);
+  };
+
+  const submitReply = async () => {
+    try {
+      await axiosInstance.post(
+        '/add-reply',
+        {
+          orderId: id,
+          content: replyContent,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+      toast.success('Reply added successfully');
+      setReplyContent('');
+      setShowReplyModal(false);
+      fetchRequestDetails(); // Refresh the request details to show the new reply
+    } catch (error) {
+      console.error('Error submitting reply:', error);
+      toast.error('Failed to submit reply');
+    }
+  };
+
+  const handleAccept = async () => {
+    try {
+      await axiosInstance.post(
+        `/apply-job/${id}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+      toast.success('Request accepted successfully');
+      navigate('/home');
+    } catch (error) {
+      console.error('Error accepting request:', error);
+      toast.error('Failed to accept request');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-8">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!request) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-8">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center">Request not found</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-8">
       <div className="max-w-4xl mx-auto px-4">
@@ -5,22 +111,20 @@
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
-              <img 
-                src={request.user?.profilePicture || "https://via.placeholder.com/40"} 
-                alt="Profile" 
-                className="w-10 h-10 rounded-full"
-              />
+              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                <span className="text-gray-600">{request.userName?.[0]?.toUpperCase() || 'U'}</span>
+              </div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {request.user?.fullName}
+                  {request.userName || 'Unknown User'}
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {request.user?.major} • {request.user?.year}
+                  {request.category} • {request.location}
                 </p>
               </div>
             </div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {new Date(request.createdAt).toLocaleDateString()}
+              {new Date(request.datePosted).toLocaleDateString()}
             </span>
           </div>
 
@@ -29,7 +133,7 @@
               {request.title}
             </h1>
             <p className="text-gray-700 dark:text-gray-300">
-              {request.description}
+              {request.content}
             </p>
           </div>
 
@@ -60,23 +164,18 @@
             <div key={reply._id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <img 
-                    src={reply.user?.profilePicture || "https://via.placeholder.com/40"} 
-                    alt="Profile" 
-                    className="w-10 h-10 rounded-full"
-                  />
+                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                    <span className="text-gray-600">{reply.userName?.[0]?.toUpperCase() || 'U'}</span>
+                  </div>
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {reply.user?.fullName}
+                      {reply.userName || 'Unknown User'}
                     </h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {reply.user?.major} • {reply.user?.year}
+                      {new Date(reply.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(reply.createdAt).toLocaleDateString()}
-                </span>
               </div>
               <p className="text-gray-700 dark:text-gray-300">
                 {reply.content}
@@ -115,4 +214,7 @@
         )}
       </div>
     </div>
-  ); 
+  );
+};
+
+export default RequestDetails; 

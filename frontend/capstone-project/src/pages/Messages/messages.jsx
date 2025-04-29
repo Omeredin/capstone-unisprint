@@ -25,7 +25,32 @@ const Messages = () => {
   useEffect(() => {
     fetchConversations()
     checkUnreadMessages()
+    // Create AI agent conversation if it doesn't exist
+    createAIAgentConversation()
   }, [])
+
+  const createAIAgentConversation = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      // Check if AI conversation already exists
+      const aiConv = conversations.find(c => c.otherUser.isAI)
+      if (aiConv) return
+
+      // Create conversation with AI agent
+      const response = await axiosInstance.post("/start-conversation", {
+        recipientId: "ai-agent", // Special ID for AI agent
+        initialMessage: "Hello! I'm your UniSprint AI assistant. How can I help you today?"
+      })
+
+      if (response.data.conversationId) {
+        fetchConversations() // Refresh conversations to include the AI agent
+      }
+    } catch (error) {
+      console.error("Error creating AI agent conversation:", error)
+    }
+  }
 
   useEffect(() => {
     if (activeConversation) {
@@ -259,7 +284,7 @@ const Messages = () => {
             {/* Conversations sidebar */}
             <div className={`${showUserSearch ? 'w-1/4' : 'w-1/4'} border-r bg-gray-50 overflow-y-auto transition-all duration-300`}>
               <div className="p-4 border-b bg-gray-100 flex justify-between items-center">
-                <h2 className="font-semibold">Conversations</h2>
+                <h2 className="font-semibold text-black">Conversations</h2>
                 <button 
                   onClick={toggleUserSearch}
                   className="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 flex items-center"
@@ -344,7 +369,12 @@ const Messages = () => {
                       </button>
                     </div>
                   ) : (
-                    conversations.map((conv) => (
+                    // Sort conversations to show AI first
+                    [...conversations].sort((a, b) => {
+                      if (a.otherUser.isAI) return -1;
+                      if (b.otherUser.isAI) return 1;
+                      return 0;
+                    }).map((conv) => (
                       <div
                         key={conv._id}
                         className={`p-4 border-b cursor-pointer hover:bg-gray-100 ${
@@ -352,7 +382,7 @@ const Messages = () => {
                         }`}
                         onClick={() => setActiveConversation(conv._id)}
                       >
-                        <div className="font-medium">{conv.otherUser.fullName}</div>
+                        <div className="font-medium text-black">{conv.otherUser.fullName}</div>
                         <div className="text-sm text-gray-500 truncate">
                           {conv.lastMessage ? conv.lastMessage.content : "Start a conversation"}
                         </div>
@@ -393,8 +423,8 @@ const Messages = () => {
                       messages.map((msg) => (
                         <div
                           key={msg._id}
-                          className={`max-w-[70%] p-3 rounded-lg ${
-                            msg.isSender ? "bg-blue-500 text-black ml-auto" : "bg-white text-gray-800 border"
+                          className={`max-w-[70%] p-3 rounded-lg ${msg.isAI ? "bg-purple-100 text-gray-800 border-purple-200" :
+                            msg.isSender ? "bg-blue-500 text-white ml-auto" : "bg-white text-gray-800 border"
                           }`}
                         >
                           <div>{msg.content}</div>
@@ -415,7 +445,7 @@ const Messages = () => {
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       placeholder="Type a message..."
-                      className="flex-1 p-2 border rounded-l-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="flex-1 p-2 border rounded-l-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-black"
                     />
                     <button
                       type="submit"

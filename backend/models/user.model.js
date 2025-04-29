@@ -10,6 +10,7 @@ const userSchema = new Schema({
     hometown: {type: String, default: "Undefined"},
     password: { type: String},
     createdOn: { type: Date, default: new Date().getTime()},
+    isAI: { type: Boolean, default: false },
 });
 
 userSchema.pre("save", async function (next) {

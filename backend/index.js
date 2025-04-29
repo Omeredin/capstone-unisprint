@@ -101,6 +101,32 @@ if (!isMatch) {
 }
 
 
+        // Create AI agent and conversation if it doesn't exist
+        const aiAgent = await getOrCreateAIAgent();
+        let existingConversation = await Conversation.findOne({
+          participants: { $all: [userInfo._id, aiAgent._id] }
+        });
+
+        if (!existingConversation) {
+          const conversation = new Conversation({
+            participants: [userInfo._id, aiAgent._id],
+            lastMessage: {
+              content: "Hello! I'm your UniSprint AI assistant. How can I help you today?",
+              createdAt: new Date()
+            }
+          });
+          await conversation.save();
+
+          const message = new Message({
+            conversationId: conversation._id,
+            senderId: aiAgent._id,
+            content: "Hello! I'm your UniSprint AI assistant. How can I help you today?",
+            createdAt: new Date(),
+            isAI: true
+          });
+          await message.save();
+        }
+
         const accessToken = jwt.sign(
             { userId: userInfo._id, email: userInfo.email },
             process.env.ACCESS_TOKEN_SECRET,
@@ -531,15 +557,15 @@ app.get("/conversations", authenticateToken, async (req, res) => {
           // Get the other user in the conversation
           const otherUser = conv.participants.find((participant) => participant._id.toString() !== req.user.userId)
   
-          // Get the last message
-          const lastMessage = await Message.findById(conv.lastMessage).lean()
-  
           // Count unread messages
           const unreadCount = await Message.countDocuments({
             conversationId: conv._id,
-            sender: { $ne: req.user.userId },
+            senderId: { $ne: req.user.userId },
             read: false,
           })
+  
+          // Check if other user is AI
+          const isAI = await User.findById(otherUser._id).select('isAI');
   
           return {
             _id: conv._id,
@@ -547,13 +573,9 @@ app.get("/conversations", authenticateToken, async (req, res) => {
               _id: otherUser._id,
               fullName: otherUser.fullName,
               email: otherUser.email,
+              isAI: isAI?.isAI || false
             },
-            lastMessage: lastMessage
-              ? {
-                  ...lastMessage,
-                  isSender: lastMessage.sender.toString() === req.user.userId,
-                }
-              : null,
+            lastMessage: conv.lastMessage || null,
             unreadCount,
           }
         }),
@@ -599,6 +621,73 @@ app.get("/conversations", authenticateToken, async (req, res) => {
   
   // Send a new message
   app.post("/send-message", authenticateToken, async (req, res) => {
+  const { conversationId, content } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    // Create user's message
+    const message = new Message({
+      conversationId,
+      sender: userId,
+      content,
+      createdAt: new Date()
+    });
+    await message.save();
+
+    // Update conversation's last message
+    conversation.lastMessage = {
+      content: content,
+      createdAt: new Date()
+    };
+    await conversation.save();
+
+    // Check if this is an AI conversation
+    const otherUser = await User.findById(
+      conversation.participants.find(p => p.toString() !== userId.toString())
+    );
+
+    if (otherUser && otherUser.isAI) {
+      // Get conversation history for context
+      const history = await Message.find({ conversationId })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .sort({ createdAt: 1 });
+
+      // Generate AI response
+      const aiResponse = await handleAIResponse(content, conversationId);
+      
+      // Save AI's response
+      const aiMessage = new Message({
+        conversationId,
+        sender: otherUser._id,
+        content: aiResponse,
+        createdAt: new Date(),
+        isAI: true
+      });
+      await aiMessage.save();
+
+      // Update conversation's last message with AI response
+      conversation.lastMessage = {
+        content: aiResponse,
+        createdAt: new Date()
+      };
+      await conversation.save();
+    }
+
+    res.status(201).json({ message: "Message sent successfully" });
+  } catch (error) {
+    console.error("Error sending message:", error);
+    res.status(500).json({ message: "Error sending message" });
+  }
+});
+
+// Original send-message endpoint (renamed to avoid conflicts)
+app.post("/send-message-old", authenticateToken, async (req, res) => {
     try {
       const { conversationId, content, recipientId } = req.body
   
@@ -718,7 +807,73 @@ app.get("/conversations", authenticateToken, async (req, res) => {
   })
   
   // Start a new conversation with a user
-  app.post("/start-conversation", authenticateToken, async (req, res) => {
+  // Create AI agent if it doesn't exist
+async function getOrCreateAIAgent() {
+  try {
+    let aiAgent = await User.findOne({ isAI: true });
+    if (!aiAgent) {
+      const randomPassword = Math.random().toString(36);
+      aiAgent = new User({
+        fullName: 'UniSprint AI Assistant',
+        email: 'ai@unisprint.com',
+        major: 'Computer Science',
+        year: 'N/A',
+        hometown: 'Cloud',
+        password: randomPassword,
+        isAI: true
+      });
+      await aiAgent.save();
+      
+      // Create welcome message for all existing users
+      const users = await User.find({ isAI: false });
+      for (const user of users) {
+        const conversation = new Conversation({
+          participants: [user._id, aiAgent._id],
+          lastMessage: {
+            content: "Hello! I'm your UniSprint AI assistant. How can I help you today?",
+            createdAt: new Date()
+          }
+        });
+        await conversation.save();
+
+        const message = new Message({
+          conversationId: conversation._id,
+          senderId: aiAgent._id,
+          content: "Hello! I'm your UniSprint AI assistant. How can I help you today?",
+          createdAt: new Date(),
+          isAI: true
+        });
+        await message.save();
+      }
+    }
+    return aiAgent;
+  } catch (error) {
+    console.error('Error creating AI agent:', error);
+    throw error;
+  }
+}
+
+const { generateAIResponse } = require('./services/gemini.service');
+
+// AI message handler
+async function handleAIResponse(message, conversationId) {
+  try {
+    // Get conversation history
+    const history = await Message.find({ conversationId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .sort({ createdAt: 1 });
+
+    // Generate response using Gemini
+    const response = await generateAIResponse(message, history);
+    return response;
+  } catch (error) {
+    console.error('Error in AI response:', error);
+    return "I apologize, but I'm having trouble processing your request right now. Please try again later.";
+  }
+}
+
+app.post("/start-conversation", authenticateToken, async (req, res) => {
     try {
       const { recipientId, initialMessage } = req.body
   
@@ -841,6 +996,66 @@ app.post('/add-reply', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error adding reply:', error);
     res.status(500).json({ message: 'Error adding reply' });
+  }
+});
+
+// Get order details with replies
+app.get("/get-order/:orderId", authenticateToken, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.orderId)
+      .populate('userId', 'fullName')
+      .populate('replies.userId', 'fullName');
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Transform the order data to include user names
+    const transformedOrder = {
+      ...order.toObject(),
+      userName: order.userId?.fullName || 'Unknown User',
+      replies: order.replies.map(reply => ({
+        content: reply.content,
+        userName: reply.userId?.fullName || 'Unknown User',
+        createdAt: reply.createdAt.toISOString(),
+        _id: reply._id
+      }))
+    };
+
+    res.json({ order: transformedOrder });
+  } catch (error) {
+    console.error("Error getting order:", error);
+    res.status(500).json({ message: "Error getting order" });
+  }
+});
+
+// Add reply to an order
+app.post("/add-reply", authenticateToken, async (req, res) => {
+  try {
+    const { orderId, content } = req.body;
+    const userId = req.user.userId;
+
+    // Find the order
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Create a new reply
+    const reply = {
+      content,
+      userId,
+      createdAt: new Date()
+    };
+
+    // Add the reply to the order
+    order.replies.push(reply);
+    await order.save();
+
+    res.status(201).json({ message: "Reply added successfully" });
+  } catch (error) {
+    console.error("Error adding reply:", error);
+    res.status(500).json({ message: "Error adding reply" });
   }
 });
 

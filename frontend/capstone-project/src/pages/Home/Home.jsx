@@ -24,7 +24,17 @@ const Home = () => {
     try {
         setLoading(true);
         const response = await axiosInstance.get("/get-all-orders");
-        setOrders(response.data.orders);
+        const ordersWithDetails = await Promise.all(
+          response.data.orders.map(async (order) => {
+            const detailsResponse = await axiosInstance.get(`/get-order/${order._id}`);
+            console.log('Order details:', JSON.stringify(detailsResponse.data.order, null, 2));
+            if (detailsResponse.data.order.replies && detailsResponse.data.order.replies.length > 0) {
+              console.log('First reply:', JSON.stringify(detailsResponse.data.order.replies[0], null, 2));
+            }
+            return detailsResponse.data.order;
+          })
+        );
+        setOrders(ordersWithDetails);
     } catch (error) {
         console.error("Error fetching posts:", error);
     } finally {
@@ -111,6 +121,7 @@ const Home = () => {
                   urgency={order.urgency}
                   date={order.datePosted}
                   name={order.userName}
+                  replies={order.replies || []}
                 />
                 {/* {!acceptedJobs.includes(order._id) && ( */}
                   <button
