@@ -1,16 +1,17 @@
 //require("dotenv").config({path: "./.env"});
 require('dotenv').config();
 
-const config = require("./config.json");
 const mongoose = require("mongoose");
 
 const User = require("./models/user.model");
 const Order = require("./models/order.model");
 const Conversation = require("./models/conversation.model")
 const Message = require("./models/messages.model")
-mongoose.connect(config.connectionString, { useNewUrlParser: true, useUnifiedTopology: true })
+
+// Connect to MongoDB using environment variable
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
 .then(() => console.log("MongoDB connected"))
-.catch(err => console.error("MongoDB connection erro:", err));
+.catch(err => console.error("MongoDB connection error:", err));
 
 //mongoose.connect(config.connectionString);
 
@@ -28,7 +29,7 @@ app.use(express.json())
 
 app.use(
     cors({
-        origin: ["https://capstone-unisprint-two.vercel.app", "http://localhost:5173", "http://localhost:3000", "https://capstone.onrender.com"],
+        origin: ["https://capstone-unisprint-two.vercel.app", "http://localhost:5173", "http://localhost:3000"],
         credentials: true
     })
 );
