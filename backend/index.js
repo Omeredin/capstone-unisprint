@@ -28,7 +28,7 @@ app.use(express.json())
 
 app.use(
     cors({
-        origin: ["https://capstone-unisprint-two.vercel.app", "http://localhost:5173", "http://localhost:3000"],
+        origin: ["https://capstone-unisprint-two.vercel.app", "http://localhost:5173", "http://localhost:3000", "https://capstone.onrender.com"],
         credentials: true
     })
 );
