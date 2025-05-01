@@ -1,8 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const config = require('../config');
 
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
+// Initialize Gemini with API key from environment variable
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Create a context for the AI assistant
 const systemContext = `You are UniSprint AI, a helpful assistant for a university-focused platform. 
