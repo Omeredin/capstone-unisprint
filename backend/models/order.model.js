@@ -23,5 +23,6 @@ const orderSchema = new Schema({
     status: { type: String, default: "Open" }, // Open, Accepted, or Rejected
     replies: [replySchema] // Array of replies
 });
-
+// Add full-text index for better search on title, content, and category
+orderSchema.index({ title: 'text', content: 'text', category: 'text' });
 module.exports = mongoose.model("Order", orderSchema);

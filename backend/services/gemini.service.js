@@ -7,21 +7,14 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // Function to search for relevant job posts
 async function searchJobPosts(query) {
     try {
-        // Create a case-insensitive search regex
-        const searchRegex = new RegExp(query, 'i');
-
-        // Search in title, content, and category fields
-        const posts = await Order.find({
-            $or: [
-                { title: searchRegex },
-                { content: searchRegex },
-                { category: searchRegex }
-            ],
-            status: 'Open' // Only show open jobs
-        })
+        // Use MongoDB full-text search for better relevance
+        const posts = await Order.find(
+            { $text: { $search: query }, status: 'Open' },
+            { score: { $meta: 'textScore' } }
+        )
         .populate({ path: 'userId', select: 'fullName' })
-        .sort({ datePosted: -1 })
-        .limit(5); // Limit to 5 most recent matches
+        .sort({ score: { $meta: 'textScore' }, datePosted: -1 })
+        .limit(5);
 
         return posts.map(post => ({
             title: post.title,
