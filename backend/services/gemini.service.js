@@ -1,7 +1,42 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Order = require('../models/order.model');
 
 // Initialize Gemini with API key from environment variable
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Function to search for relevant job posts
+async function searchJobPosts(query) {
+    try {
+        // Create a case-insensitive search regex
+        const searchRegex = new RegExp(query, 'i');
+
+        // Search in title, content, and category fields
+        const posts = await Order.find({
+            $or: [
+                { title: searchRegex },
+                { content: searchRegex },
+                { category: searchRegex }
+            ],
+            status: 'Open' // Only show open jobs
+        })
+        .populate({ path: 'userId', select: 'fullName' })
+        .sort({ datePosted: -1 })
+        .limit(5); // Limit to 5 most recent matches
+
+        return posts.map(post => ({
+            title: post.title,
+            content: post.content,
+            category: post.category,
+            payment: post.payment,
+            location: post.location,
+            postedBy: post.userId.fullName,
+            urgency: post.urgency ? 'Urgent' : 'Regular'
+        }));
+    } catch (error) {
+        console.error('Error searching job posts:', error);
+        return [];
+    }
+}
 
 // Create a context for the AI assistant
 const systemContext = `You are UniSprint AI, a helpful assistant for a university-focused platform. 
@@ -38,20 +73,33 @@ async function generateAIResponse(userMessage, conversationHistory = []) {
         // Get the model
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig: { maxOutputTokens: 2048 } });
 
+        // Check if the message is asking about job posts
+        const jobSearchKeywords = ['show me', 'find', 'search', 'looking for', 'need', 'want', 'tutoring', 'tutor', 'job', 'jobs', 'posts', 'help with'];
+        const isJobSearch = jobSearchKeywords.some(keyword => userMessage.toLowerCase().includes(keyword.toLowerCase()));
+
+        let relevantPosts = [];
+        if (isJobSearch) {
+            // Search for relevant job posts
+            relevantPosts = await searchJobPosts(userMessage);
+        }
+
         // Format conversation history for context
         const formattedHistory = conversationHistory.map(msg => 
             `${msg.isSender ? 'User' : 'Assistant'}: ${msg.content}`
         ).join('\n');
 
-        // Create the prompt with context
-        const prompt = `${systemContext}
+        // Create the prompt with context and job posts if available
+        let prompt = `${systemContext}\n\n`;
 
-Conversation History:
-${formattedHistory}
+        if (relevantPosts.length > 0) {
+            prompt += `Current Available Jobs:\n${JSON.stringify(relevantPosts, null, 2)}\n\n`;
+        }
 
-User: ${userMessage}
+        prompt += `Conversation History:\n${formattedHistory}\n\nUser: ${userMessage}\n\nA: `;
 
-Assistant:`;
+        if (relevantPosts.length > 0) {
+            prompt += 'Based on the available jobs shown above, ';
+        }
 
         // Generate response
         const result = await model.generateContent(prompt);
@@ -63,4 +111,4 @@ Assistant:`;
     }
 }
 
-module.exports = { generateAIResponse };
+module.exports = { generateAIResponse, searchJobPosts };
