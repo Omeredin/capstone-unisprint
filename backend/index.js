@@ -18,7 +18,7 @@ mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTop
 const express = require("express");
 const cors = require("cors");
 const app = express();
-const port = process.env.PORT || 8000;
+const port = process.env.RENDER_PORT || process.env.PORT || 8000; 
 
 
 
@@ -966,7 +966,10 @@ app.post("/start-conversation", authenticateToken, async (req, res) => {
   
 
 
-app.listen(port);
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
 
 module.exports = app;
 
