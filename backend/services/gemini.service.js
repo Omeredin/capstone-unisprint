@@ -103,11 +103,39 @@ async function generateAIResponse(userMessage, conversationHistory = []) {
 
         // Generate response
         const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text().trim();
+        console.log('Gemini API result:', result);
+        
+        if (!result || !result.response) {
+            console.error('Invalid response from Gemini API:', result);
+            throw new Error('Invalid response structure from Gemini API');
+        }
+
+        const response = result.response;
+        console.log('Gemini API response:', response);
+
+        if (!response.text) {
+            console.error('Response missing text method:', response);
+            throw new Error('Response missing text method');
+        }
+
+        const text = response.text();
+        console.log('Final text:', text);
+        return text.trim();
     } catch (error) {
-        console.error('Error generating AI response:', error);
-        return "I apologize, but I'm having trouble processing your request right now. Please try again later.";
+        console.error('Error generating AI response:', {
+            error: error,
+            message: error.message,
+            stack: error.stack,
+            userMessage: userMessage,
+            modelName: "gemini-2.0-flash",
+            apiKey: process.env.GEMINI_API_KEY ? 'Present' : 'Missing'
+        });
+        
+        if (!process.env.GEMINI_API_KEY) {
+            return "Error: Gemini API key is missing. Please check your environment variables.";
+        }
+        
+        return `Error: ${error.message}. Please try again later.`;
     }
 }
 
