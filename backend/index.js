@@ -615,8 +615,14 @@ app.get("/conversations", authenticateToken, async (req, res) => {
   
       res.json({ messages: processedMessages })
     } catch (error) {
-      console.error("Error fetching messages:", error)
-      res.status(500).json({ error: true, message: "Internal server error" })
+      console.error("Error fetching messages:", {
+        error: error,
+        message: error.message,
+        stack: error.stack,
+        conversationId: req.params.conversationId,
+        userId: req.user.userId
+      })
+      res.status(500).json({ error: true, message: `Error fetching messages: ${error.message}` })
     }
   })
   
