@@ -98,10 +98,7 @@ const SignUp = () => {
                 <option>Senior</option>
                 <option>Grad Student</option>
             </select>
-            {/* <input  id="year" class="shadow-sm rounded-md w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-black" placeholder="Name" required
-            
-            value={year}
-            onChange={(e) => setYear(e.target.value)}/>  */}
+           
                      </div>
             <div class="mb-4">
           <label for="hometown" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Hometown <span>(Optional)</span> </label>
