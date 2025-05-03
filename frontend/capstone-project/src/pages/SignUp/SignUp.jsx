@@ -26,25 +26,28 @@ const SignUp = () => {
     try {
       const response = await axiosInstance.post("/create-account", {
         fullName: name,
-        email:email,
+        email: email,
         password: password,
         major: major,
         hometown: hometown,
         year: year
       });
-  
-  
-      if (response.data && response.data.accessToken) {
-        localStorage.setItem("token", response.data.accessToken);
+
+      // If account creation was successful, redirect to login
+      if (response.data) {
+        // Show success message
+        alert("Account created successfully! Please log in.");
+        // Redirect to login page
         navigate("/login");
-      }} catch (error) {
-        if (error.response && error.response.data && error.response.data.message) {
-          console.error('Error during login:', error);
-          setError(error.response.data.message);
-        } else {
-          setError("error just occured");
-        }
-      };
+      }
+    } catch (error) {
+      if (error.response && error.response.data && error.response.data.message) {
+        console.error('Error during login:', error);
+        setError(error.response.data.message);
+      } else {
+        setError("An error occurred during signup");
+      }
+    }
   }
 
   return (

@@ -4,10 +4,10 @@ const Order = require('../models/order.model');
 // Initialize Gemini with API key from environment variable
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Function to search for relevant job posts
+// Function to use MongoDB full-text search for better relevance search for relevant job posts
 async function searchJobPosts(query) {
     try {
-        // Use MongoDB full-text search for better relevance
+        
         const posts = await Order.find(
             { $text: { $search: query }, status: 'Open' },
             { score: { $meta: 'textScore' } }
