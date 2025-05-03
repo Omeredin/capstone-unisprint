@@ -22,8 +22,10 @@ const SignUp = () => {
 
   const handleSignup = async (e) => {
     e.preventDefault();
+    console.log('Signup started...');
 
     try {
+      console.log('Sending signup request...');
       const response = await axiosInstance.post("/create-account", {
         fullName: name,
         email: email,
@@ -33,16 +35,21 @@ const SignUp = () => {
         year: year
       });
 
-      // If account creation was successful, redirect to login
+      console.log('Signup response:', response.data);
+
+      // If account creation was successful
       if (response.data) {
+        console.log('Signup successful, preparing to navigate...');
         // Show success message
         alert("Account created successfully! Please log in.");
         // Redirect to login page
-        navigate("/login");
+        console.log('Navigating to login page...');
+        navigate("/login", { replace: true });
+        console.log('Navigation called');
       }
     } catch (error) {
+      console.error('Signup error:', error);
       if (error.response && error.response.data && error.response.data.message) {
-        console.error('Error during login:', error);
         setError(error.response.data.message);
       } else {
         setError("An error occurred during signup");
@@ -114,7 +121,7 @@ const SignUp = () => {
               <Link to="/login" class="text-xs text-indigo-500 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Already have an account?</Link></div>
           </div>
 
-          <button onClick={handleSignup} type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Create account</button>
+          <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Create account</button>
         </form>
       </div>
     </div>
