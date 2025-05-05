@@ -50,8 +50,8 @@ const LandingPage = () => {
               <a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">Home</a>
               <a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">About</a>
               <a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">How It Works</a>
-              <a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">Sign Up</a>
-              <a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">Login</a>
+              <Link to="/signup" ><a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">Sign Up</a></Link>
+              <Link to="/login" ><a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">Login</a></Link>
               
             </div>
           </div>
