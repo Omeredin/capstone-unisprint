@@ -34,7 +34,7 @@ const LandingPage = () => {
             <a href="#" className="text-white hover:text-blue-600">Contact</a>
         
             </nav>
-            <Button className="hidden md:block bg-white text-black">Get Started</Button>
+           
             <button
               className="md:hidden"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
