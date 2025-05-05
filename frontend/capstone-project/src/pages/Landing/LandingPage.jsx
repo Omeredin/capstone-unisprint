@@ -52,7 +52,7 @@ const LandingPage = () => {
               <a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">How It Works</a>
               <a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">Sign Up</a>
               <a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">Login</a>
-              /*<Button className="w-full mt-4">Get Started</Button>*/
+              
             </div>
           </div>
         )}
