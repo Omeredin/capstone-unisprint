@@ -972,10 +972,7 @@ app.post("/start-conversation", authenticateToken, async (req, res) => {
   
 
 
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+app.listen(port);
 
 module.exports = app;
 

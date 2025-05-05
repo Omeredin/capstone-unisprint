@@ -52,7 +52,7 @@ const LandingPage = () => {
               <a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">How It Works</a>
               <a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">Sign Up</a>
               <a href="#" className="block px-3 py-2 text-gray-600 hover:text-blue-600">Login</a>
-              <Button className="w-full mt-4">Get Started</Button>
+              /*<Button className="w-full mt-4">Get Started</Button>*/
             </div>
           </div>
         )}
@@ -69,9 +69,7 @@ const LandingPage = () => {
               <p className="text-xl mb-8">
                 Connect, collaborate, and complete tasks within your school community.
               </p>
-              <Button size="lg" className="bg-white text-black hover:bg-blue-50">
-                Sign Up Now
-              </Button>
+              
             </div>
             <div className="md:w-3/5">
               <video
@@ -140,9 +138,9 @@ const LandingPage = () => {
           <h2 className="text-3xl font-bold text-center mb-12 text-white">What Students Say</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
-              { name: 'Alex Johnson', role: 'Computer Science Major', quote: 'TaskConnect has been a game-changer for me. I have been able to find help for my projects and earn money helping others.' },
+              { name: 'Alex Johnson', role: 'Computer Science Major', quote: 'UniSprint has been a game-changer for me. I have been able to find help for my projects and earn money helping others.' },
               { name: 'Samantha Lee', role: 'Business Major', quote: 'The platform is so easy to use. I have connected with amazing people and improved my time management skills.' },
-              { name: 'Michael Brown', role: 'Engineering Major', quote: 'I love how TaskConnect allows me to apply my skills to real-world problems while helping fellow students.' },
+              { name: 'Michael Brown', role: 'Engineering Major', quote: 'I love how UniSprint allows me to apply my skills to real-world problems while helping fellow students.' },
             ].map((testimonial, index) => (
               <div key={index} className="bg-white p-6 rounded-lg shadow-md">
                 <div className="flex items-center mb-4">
